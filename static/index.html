@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0c10">
+<title>Zora</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --bg-glow-1: rgba(78, 140, 255, 0.07);
+    --bg-glow-2: rgba(155, 107, 255, 0.06);
+    --surface: #12151b;
+    --surface-2: #171b22;
+    --border: #23272f;
+    --border-soft: #1b1f27;
+    --text: #e8eaed;
+    --muted: #9aa0a6;
+    --user-bubble: #1e2229;
+    --grad: linear-gradient(135deg, #4e8cff 0%, #9b6bff 55%, #ff7eb6 100%);
+    --grad-text: linear-gradient(90deg, #7fb2ff 0%, #b58cff 50%, #ff9ec2 100%);
+    --danger: linear-gradient(135deg, #ff5d73 0%, #d63c56 100%);
+    --ok: #7bbf8a;
+    --err: #e05a6e;
+    --radius: 16px;
+  }
+  /* ---- TEMAS PERSONALIZABLES (el usuario elige en el panel ⚙️) ----
+     Solo redefinen variables: todo lo demás hereda solito. */
+  body.theme-light {
+    --bg: #f6f7fb;
+    --bg-glow-1: rgba(78, 140, 255, 0.10);
+    --bg-glow-2: rgba(155, 107, 255, 0.08);
+    --surface: #ffffff;
+    --surface-2: #eef0f5;
+    --border: #d9dde5;
+    --border-soft: #e4e7ee;
+    --text: #1c1f26;
+    --muted: #5b6472;
+    --user-bubble: #dde3ee;
+  }
+  body.theme-sepia {
+    --bg: #171310;
+    --bg-glow-1: rgba(255, 176, 92, 0.07);
+    --bg-glow-2: rgba(255, 120, 60, 0.05);
+    --surface: #201a15;
+    --surface-2: #292119;
+    --border: #3a2f23;
+    --border-soft: #31281e;
+    --text: #f0e7d8;
+    --muted: #b3a48e;
+    --user-bubble: #352a1f;
+  }
+
+  /* ---- Panel de personalización ---- */
+  #theme-btn { background: none; color: var(--muted); font-size: 16px; padding: 7px 9px; border-radius: 999px; }
+  #theme-btn:hover { color: var(--text); background: var(--surface-2); }
+  #theme-panel {
+    position: fixed; top: 56px; right: 12px; z-index: 60;
+    width: 250px; padding: 14px; border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--border);
+    box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    display: none; flex-direction: column; gap: 10px;
+  }
+  #theme-panel.open { display: flex; }
+  #theme-panel h3 { margin: 0 0 2px; font-size: 13px; color: var(--text); }
+  #theme-panel .grp-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .swatch {
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; outline: 2px solid transparent; outline-offset: 2px;
+  }
+  .swatch.sel { outline-color: var(--text); }
+  .opt-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .opt-chip {
+    padding: 7px 11px; font-size: 12px; cursor: pointer; border-radius: 10px;
+    background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+  }
+  .opt-chip.sel { color: white; background: var(--grad); border-color: transparent; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 420px at 15% -10%, var(--bg-glow-1), transparent 60%),
+      radial-gradient(800px 400px at 90% -20%, var(--bg-glow-2), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Google Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #262a33; border-radius: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .app {
+    width: 100%; max-width: 860px; margin: 0 auto;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+
+  .grad-text {
+    background: var(--grad-text);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+
+  button {
+    border: none; border-radius: 12px; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    transition: transform .15s ease, box-shadow .2s ease, background .2s ease, opacity .2s;
+  }
+  button:active { transform: scale(0.97); }
+  button:focus-visible { outline: 2px solid #7fb2ff; outline-offset: 2px; }
+
+  input, select {
+    font-family: inherit; color: var(--text); font-size: 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 11px 13px; width: 100%;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  input:focus, select:focus {
+    outline: none; border-color: #4e8cff;
+    box-shadow: 0 0 0 3px rgba(78, 140, 255, 0.15);
+  }
+  label { font-size: 12px; color: var(--muted); display: block; margin: 14px 0 6px; }
+
+  /* ================= LOGIN ================= */
+  #login-screen {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 28px 20px;
+  }
+  .login-card {
+    width: 100%; max-width: 400px;
+    background: rgba(18, 21, 27, 0.85);
+    border: 1px solid var(--border-soft); border-radius: 24px;
+    padding: 34px 30px; backdrop-filter: blur(10px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    animation: fadeInUp .45s ease both;
+  }
+  .login-logo {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--grad);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 700; color: white;
+    margin: 0 auto 16px; user-select: none;
+    box-shadow: 0 10px 30px rgba(120, 110, 255, 0.35);
+  }
+  .login-card h1 {
+    text-align: center; font-size: 26px; font-weight: 600; margin: 0 0 6px;
+  }
+  .login-card p.sub { text-align: center; color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+  .row-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-primary {
+    flex: 1; padding: 12px; border-radius: 999px;
+    background: var(--grad); color: white; font-weight: 600;
+    box-shadow: 0 6px 18px rgba(120, 110, 255, 0.25);
+  }
+  .btn-primary:hover { box-shadow: 0 8px 26px rgba(120, 110, 255, 0.4); }
+  .btn-secondary {
+    flex: 1; padding: 12px; border-radius: 999px;
+    background: transparent; color: var(--text); border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--surface-2); }
+  #login-error { color: var(--err); font-size: 13px; min-height: 18px; margin-top: 12px; text-align: center; }
+
+  /* ================= CHAT ================= */
+  #chat-screen { display: none; flex: 1; flex-direction: column; min-height: 100vh; }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 14px 20px;
+    background: rgba(10, 12, 16, 0.75);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--grad); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; user-select: none;
+    box-shadow: 0 4px 14px rgba(120, 110, 255, 0.35);
+  }
+  .brand span.name { font-size: 17px; font-weight: 600; }
+  header .right { display: flex; align-items: center; gap: 8px; }
+  header select {
+    width: auto; max-width: 150px; padding: 7px 10px; font-size: 12px;
+    border-radius: 999px; color: var(--muted); background: var(--surface);
+  }
+  #log-out { background: none; color: var(--muted); font-size: 12px; padding: 7px 10px; border-radius: 999px; }
+  #log-out:hover { color: var(--text); background: var(--surface-2); }
+
+  #messages {
+    flex: 1; overflow-y: auto; width: 100%;
+    max-width: 760px; margin: 0 auto;
+    padding: 26px 20px 12px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg { animation: fadeInUp .3s ease both; font-size: 14.5px; line-height: 1.65; }
+  .msg.user {
+    align-self: flex-end; max-width: 80%;
+    background: var(--user-bubble);
+    border: 1px solid var(--border-soft);
+    padding: 12px 16px; border-radius: 20px 20px 6px 20px;
+    white-space: pre-wrap;
+  }
+  .msg.zora { display: flex; gap: 12px; align-self: stretch; white-space: pre-wrap; }
+  .msg.zora .avatar {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--grad); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; margin-top: 2px; user-select: none;
+  }
+  .msg.zora .body { flex: 1; min-width: 0; overflow-wrap: break-word; }
+  .msg.status {
+    align-self: center; color: var(--muted); font-size: 12px; text-align: center;
+  }
+
+  /* Indicador "pensando": tres puntitos que rebotan */
+  .dots { display: inline-flex; gap: 5px; padding: 8px 0; }
+  .dots i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: linear-gradient(135deg, #7fb2ff, #ff9ec2);
+    animation: bounceDot 1.2s infinite ease-in-out;
+  }
+  .dots i:nth-child(2) { animation-delay: .15s; }
+  .dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounceDot {
+    0%, 70%, 100% { transform: translateY(0); opacity: .5; }
+    35% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  .msg img { max-width: 100%; border-radius: 14px; margin-top: 10px; display: block; }
+
+  /* Chips de sugerencia */
+  #chips-row {
+    display: none; flex-wrap: wrap; gap: 8px; justify-content: center;
+    max-width: 760px; margin: 0 auto; padding: 4px 16px 10px; width: 100%;
+  }
+  #chips-row.show { display: flex; }
+  .chip {
+    padding: 9px 15px; border-radius: 999px; font-size: 13px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .chip:hover { background: var(--surface-2); border-color: #39404d; transform: translateY(-1px); }
+
+  /* Composer flotante */
+  form#composer-wrap { padding: 10px 20px 14px; }
+  #composer {
+    display: flex; align-items: center; gap: 6px;
+    max-width: 760px; margin: 0 auto;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 28px; padding: 8px 10px;
+    transition: border-color .25s, box-shadow .25s;
+  }
+  #composer:focus-within {
+    border-color: rgba(123, 158, 255, 0.6);
+    box-shadow: 0 0 0 3px rgba(78, 140, 255, 0.14), 0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+  #text-input {
+    flex: 1; background: transparent; border: none;
+    padding: 10px 8px; font-size: 14.5px;
+  }
+  #text-input:focus { outline: none; box-shadow: none; }
+  #mic-btn, #send-btn, #speaker-btn {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; padding: 0;
+  }
+  #mic-btn { background: var(--grad); color: white; box-shadow: 0 4px 14px rgba(120,110,255,.3); }
+  #mic-btn.listening { background: var(--danger); animation: pulseMic 1.2s infinite; }
+  @keyframes pulseMic {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(214, 60, 86, 0.5); }
+    50% { box-shadow: 0 0 0 10px rgba(214, 60, 86, 0); }
+  }
+  #send-btn { background: var(--grad); color: white; }
+  #speaker-btn { background: transparent; color: var(--muted); }
+  #speaker-btn.muted { opacity: 0.4; }
+
+  /* Tabs inferiores */
+  nav.tabs {
+    display: flex; border-top: 1px solid var(--border-soft);
+    background: rgba(10, 12, 16, 0.85); backdrop-filter: blur(14px);
+    padding: 6px 10px calc(8px + env(safe-area-inset-bottom));
+  }
+  nav.tabs button {
+    flex: 1; background: none; border-radius: 14px;
+    padding: 8px 4px; color: var(--muted); font-size: 11.5px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  nav.tabs button .ico { font-size: 18px; transition: transform .2s; }
+  nav.tabs button.active { color: var(--text); }
+  nav.tabs button.active .ico { transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(155,107,255,.6)); }
+  nav.tabs button.active::after {
+    content: ""; width: 18px; height: 3px; border-radius: 3px;
+    background: var(--grad); margin-top: 2px;
+  }
+
+  /* ================= EMERGENCIA ================= */
+  #panic-screen {
+    display: none; flex: 1; flex-direction: column;
+    overflow-y: auto; padding: 20px 20px 30px; gap: 20px;
+    max-width: 760px; margin: 0 auto; width: 100%;
+  }
+  #panic-screen h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
+  #sos-btn {
+    background: var(--danger); color: white; border-radius: 20px;
+    padding: 24px; font-size: 16px; font-weight: 700;
+    width: 100%; letter-spacing: 0.5px;
+    box-shadow: 0 12px 34px rgba(214, 60, 86, 0.35);
+    animation: sosPulse 2.6s infinite;
+  }
+  @keyframes sosPulse {
+    0%, 100% { box-shadow: 0 12px 34px rgba(214, 60, 86, 0.35); }
+    50% { box-shadow: 0 12px 48px rgba(214, 60, 86, 0.6); }
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border-soft);
+    border-radius: var(--radius); padding: 14px;
+  }
+  .card + .card { margin-top: 8px; }
+  .card .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .card .title { font-size: 13.5px; font-weight: 500; }
+  .card .sub { font-size: 11.5px; color: var(--muted); }
+  .mini-btn {
+    background: var(--surface-2); color: var(--text);
+    font-size: 11.5px; padding: 7px 12px; border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .mini-btn:hover { background: #20242d; }
+  .mini-form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .mini-form input { background: var(--bg); font-size: 12.5px; margin: 0; padding: 9px 11px; }
+  .add-btn {
+    background: var(--grad); color: white; font-size: 12.5px;
+    padding: 10px; border-radius: 12px; font-weight: 600;
+  }
+  #activity-summary { font-size: 30px; font-weight: 700; }
+  #activity-summary span { font-size: 13px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- LOGIN -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">Z</div>
+      <h1 class="grad-text">Hola, soy Zora</h1>
+      <p class="sub">Tu asistente de casa y de estudio. Conéctate para empezar.</p>
+
+      <label for="backend-url">URL del backend</label>
+      <input type="url" id="backend-url" value="http://localhost:8000">
+
+      <label for="username">Usuario</label>
+      <input type="text" id="username" autocomplete="username">
+
+      <label for="password">Contraseña</label>
+      <input type="password" id="password" autocomplete="current-password">
+
+      <div id="login-error"></div>
+
+      <div class="row-btns">
+        <button class="btn-secondary" id="register-btn" type="button">Crear cuenta</button>
+        <button class="btn-primary" id="login-btn" type="button">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div id="chat-screen">
+    <header>
+      <div class="brand">
+        <div class="logo">Z</div>
+        <span class="name grad-text">Zora</span>
+      </div>
+      <div class="right">
+        <select id="voice-select" title="Voz de Zora"></select>
+        <select id="device-select"><option value="">Sin dispositivo</option></select>
+        <button id="theme-btn" type="button" title="Personalizar colores y forma">🎨</button>
+        <button id="connect-pc-btn" type="button"
+                title="Registrar esta computadora para que Zora pueda controlarla">+ PC</button>
+        <button id="log-out" type="button">Salir</button>
+      </div>
+    </header>
+
+    <!-- Panel de personalización (colores y forma) -->
+    <div id="theme-panel">
+      <h3>Personalizar</h3>
+      <div class="grp-label">Tema</div>
+      <div class="opt-chips" id="theme-choices">
+        <button type="button" class="opt-chip" data-theme="">Oscuro</button>
+        <button type="button" class="opt-chip" data-theme="theme-light">Claro</button>
+        <button type="button" class="opt-chip" data-theme="theme-sepia">Sepia</button>
+      </div>
+      <div class="grp-label">Color de acento</div>
+      <div class="swatch-row" id="accent-choices">
+        <div class="swatch" data-accent="violeta" title="Violeta"
+             style="background:linear-gradient(135deg,#4e8cff,#9b6bff,#ff7eb6)"></div>
+        <div class="swatch" data-accent="azul" title="Azul"
+             style="background:linear-gradient(135deg,#38bdf8,#3b82f6,#6366f1)"></div>
+        <div class="swatch" data-accent="verde" title="Verde"
+             style="background:linear-gradient(135deg,#34d399,#14b8a6,#a3e635)"></div>
+        <div class="swatch" data-accent="rosa" title="Rosa"
+             style="background:linear-gradient(135deg,#f472b6,#ec4899,#fb7185)"></div>
+        <div class="swatch" data-accent="ambar" title="Ámbar"
+             style="background:linear-gradient(135deg,#fbbf24,#f97316,#ef4444)"></div>
+      </div>
+      <div class="grp-label">Forma (esquinas)</div>
+      <div class="opt-chips" id="radius-choices">
+        <button type="button" class="opt-chip" data-radius="24px">Suave</button>
+        <button type="button" class="opt-chip" data-radius="16px">Normal</button>
+        <button type="button" class="opt-chip" data-radius="6px">Cuadrada</button>
+      </div>
+    </div>
+
+    <div id="messages"></div>
+
+    <div id="chips-row">
+      <button class="chip" type="button">Hazme un quiz de fracciones</button>
+      <button class="chip" type="button">Crea flashcards de historia</button>
+      <button class="chip" type="button">Timer 10 minutos</button>
+      <button class="chip" type="button">¿Qué clima hace en Madrid?</button>
+    </div>
+
+    <form id="composer-wrap">
+      <div id="composer">
+        <button id="mic-btn" type="button" aria-label="Hablar">🎙</button>
+        <input id="text-input" type="text" placeholder="Pídele algo a Zora…" autocomplete="off">
+        <button id="speaker-btn" type="button" aria-label="Silenciar voz" title="Silenciar/activar voz de Zora">🔊</button>
+        <button id="send-btn" type="submit" aria-label="Enviar">➤</button>
+      </div>
+    </form>
+
+    <nav class="tabs">
+      <button type="button" class="tab-btn active" data-tab="chat"><span class="ico">💬</span>Chat</button>
+      <button type="button" class="tab-btn" data-tab="panic"><span class="ico">🚨</span>Emergencia</button>
+    </nav>
+  </div>
+
+  <!-- EMERGENCIA / GEOCERCAS / ACTIVIDAD -->
+  <div id="panic-screen">
+
+    <button id="sos-btn" type="button">🚨 ENVIAR SOS AHORA</button>
+    <div id="sos-status" class="sub" style="text-align:center;"></div>
+
+    <div>
+      <h2>Actividad de hoy</h2>
+      <div class="card">
+        <div id="activity-summary">0 <span>pasos</span></div>
+        <div class="sub" id="activity-distance">0 km recorridos</div>
+      </div>
+    </div>
+
+    <div>
+      <h2>Contactos de confianza</h2>
+      <div id="contacts-list"></div>
+      <form id="contact-form" class="mini-form">
+        <input id="contact-name" placeholder="Nombre" required>
+        <input id="contact-email" type="text" placeholder="Correo (para avisos reales)">
+        <input id="contact-phone" type="text" placeholder="Teléfono (opcional)">
+        <button class="add-btn" type="submit">+ Agregar contacto</button>
+      </form>
+    </div>
+
+    <div>
+      <h2>Geocercas</h2>
+      <div id="fences-list"></div>
+      <form id="fence-form" class="mini-form">
+        <input id="fence-name" placeholder="Nombre de la zona (ej. Casa)" required>
+        <input id="fence-radius" type="text" placeholder="Radio en metros (ej. 200)" required>
+        <button class="add-btn" type="button" id="fence-use-location">📍 Usar mi ubicación actual</button>
+        <button class="add-btn" type="submit">+ Guardar geocerca</button>
+      </form>
+    </div>
+
+    <div>
+      <h2>Alertas recientes</h2>
+      <div id="alerts-list"><div class="sub">Sin alertas todavía.</div></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// Estado
+// ============================================================
+let BACKEND_URL = "";
+let USER_TOKEN = "";
+
+// ============================================================
+// Utilidades de red
+// ============================================================
+async function apiPost(path, body, auth) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth) headers["Authorization"] = "Bearer " + USER_TOKEN;
+  const res = await fetch(BACKEND_URL + path, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ("Error " + res.status));
+  return data;
+}
+
+async function apiGet(path, auth) {
+  const headers = {};
+  if (auth) headers["Authorization"] = "Bearer " + USER_TOKEN;
+  const res = await fetch(BACKEND_URL + path, { headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ("Error " + res.status));
+  return data;
+}
+
+async function apiDelete(path, auth) {
+  const headers = {};
+  if (auth) headers["Authorization"] = "Bearer " + USER_TOKEN;
+  const res = await fetch(BACKEND_URL + path, { method: "DELETE", headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ("Error " + res.status));
+  return data;
+}
+
+// ============================================================
+// Login / registro
+// ============================================================
+const loginScreen = document.getElementById("login-screen");
+const chatScreen = document.getElementById("chat-screen");
+const loginError = document.getElementById("login-error");
+
+document.getElementById("register-btn").addEventListener("click", async () => {
+  loginError.textContent = "";
+  BACKEND_URL = document.getElementById("backend-url").value.replace(/\/$/, "");
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  if (!username || !password) {
+    loginError.textContent = "Escribe usuario y contraseña.";
+    return;
+  }
+  try {
+    await apiPost("/register", { username, password }, false);
+    loginError.style.color = "#7bbf8a";
+    loginError.textContent = "Cuenta creada. Ahora presiona Entrar.";
+  } catch (e) {
+    loginError.style.color = "#e05a6e";
+    loginError.textContent = e.message;
+  }
+});
+
+document.getElementById("login-btn").addEventListener("click", async () => {
+  loginError.textContent = "";
+  BACKEND_URL = document.getElementById("backend-url").value.replace(/\/$/, "");
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  if (!username || !password) {
+    loginError.textContent = "Escribe usuario y contraseña.";
+    return;
+  }
+  try {
+    const data = await apiPost("/login", { username, password }, false);
+    USER_TOKEN = data.token;
+    CURRENT_USER = username;
+    loadUserTheme();
+    try {
+      localStorage.setItem("zora_session",
+        JSON.stringify({ token: USER_TOKEN, url: BACKEND_URL, username }));
+    } catch (_) { /* almacenamiento lleno o bloqueado: la sesión solo vivirá en memoria */ }
+    enterChat();
+  } catch (e) {
+    loginError.style.color = "#e05a6e";
+    loginError.textContent = e.message;
+  }
+});
+
+document.getElementById("log-out").addEventListener("click", () => {
+  USER_TOKEN = "";
+  CURRENT_USER = "";
+  try { localStorage.removeItem("zora_session"); } catch (_) {}
+  document.getElementById("messages").innerHTML = "";
+  chatScreen.style.display = "none";
+  loginScreen.style.display = "flex";
+});
+
+// "Conectar esta PC": registra la computadora donde estés viendo la web
+// y te entrega el token del agente UNA vez, con el comando exacto para
+// dejar zora_laptop_agent.py corriendo allí. Es lo que cierra el círculo
+// para que Zora pueda subir el volumen, abrir apps, etc. de verdad.
+document.getElementById("connect-pc-btn").addEventListener("click", async () => {
+  const name = prompt("¿Qué nombre le doy a esta computadora?", "Mi PC");
+  if (!name) return;
+  try {
+    const data = await apiPost("/devices", { name: name.trim(), type: "laptop" }, true);
+    const tok = data.device_token || "(sin token)";
+    addMsg(
+      "¡Computadora registrada como \"" + data.name + "\"! 🎉\n\n" +
+      "Su token de agente (ya lo copié a tu portapapeles):\n" + tok +
+      "\n\nAhora en ESA computadora:\n" +
+      "1. Descarga zora_laptop_agent.py en la página de descargas de Zora.\n" +
+      "2. Ábrele una terminal en su carpeta y corre:\n" +
+      "     set ZORA_BACKEND_URL=" + BACKEND_URL + "\n" +
+      "     set ZORA_DEVICE_TOKEN=" + tok + "\n" +
+      "     python zora_laptop_agent.py\n\n" +
+      "Cuando quede en línea, dime \"sube el volumen\" y lo hago de verdad.",
+      "zora");
+    speak("Listo, computadora registrada. Sigue los pasos que te dejé escritos.");
+    try { navigator.clipboard.writeText(tok); } catch (_) {}
+    setTimeout(() => location.reload(), 2500);  // refresca el dropdown; la sesión persiste
+  } catch (e) {
+    addMsg("No pude registrar la computadora: " + e.message, "zora");
+  }
+});
+
+async function enterChat() {
+  loginScreen.style.display = "none";
+  chatScreen.style.display = "flex";
+  addStatusMsg("Conectado a " + BACKEND_URL);
+  showChips();
+  pollNotifications();  // por si hay alarmas vencidas esperando
+  try {
+    const data = await apiGet("/devices", true);
+    const select = document.getElementById("device-select");
+    Object.entries(data.devices || {}).forEach(([id, dev]) => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = dev.name + (dev.shared ? " (compartido)" : "");
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    addStatusMsg("No se pudieron cargar los dispositivos: " + e.message);
+  }
+}
+
+// ============================================================
+// Chat
+// ============================================================
+const messagesEl = document.getElementById("messages");
+const textInput = document.getElementById("text-input");
+const deviceSelect = document.getElementById("device-select");
+const chipsRow = document.getElementById("chips-row");
+
+function showChips() { chipsRow.classList.add("show"); }
+function hideChips() { chipsRow.classList.remove("show"); }
+
+chipsRow.querySelectorAll(".chip").forEach(chip => {
+  chip.addEventListener("click", () => sendCommand(chip.textContent));
+});
+
+function addMsg(text, who, opts) {
+  opts = opts || {};
+  const div = document.createElement("div");
+  div.className = "msg " + who;
+  if (who === "zora") {
+    const av = document.createElement("div");
+    av.className = "avatar";
+    av.textContent = "Z";
+    const body = document.createElement("div");
+    body.className = "body";
+    if (opts.html) body.innerHTML = text; else body.textContent = text;
+    div.appendChild(av);
+    div.appendChild(body);
+  } else {
+    div.textContent = text;
+  }
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function addStatusMsg(text) { addMsg(text, "status"); }
+
+let thinkingEl = null;
+function showThinking() {
+  thinkingEl = document.createElement("div");
+  thinkingEl.className = "msg zora";
+  thinkingEl.innerHTML =
+    '<div class="avatar">Z</div><div class="body"><span class="dots">' +
+    "<i></i><i></i><i></i></span></div>";
+  messagesEl.appendChild(thinkingEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function hideThinking() {
+  if (thinkingEl) {
+    thinkingEl.remove();
+    thinkingEl = null;
+  }
+}
+
+function addImageMsg(imageUrl, prompt) {
+  const div = document.createElement("div");
+  div.className = "msg zora";
+  const av = document.createElement("div");
+  av.className = "avatar";
+  av.textContent = "Z";
+  const body = document.createElement("div");
+  body.className = "body";
+  body.appendChild(document.createTextNode("Aquí tienes: " + prompt));
+  const img = document.createElement("img");
+  img.src = BACKEND_URL + imageUrl;
+  img.alt = prompt;
+  body.appendChild(img);
+  div.appendChild(av);
+  div.appendChild(body);
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+document.getElementById("composer-wrap").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = textInput.value.trim();
+  if (!text) return;
+  textInput.value = "";
+  hideChips();
+  await sendCommand(text);
+});
+
+async function sendCommand(text) {
+  hideChips();
+  addMsg(text, "user");
+  const deviceId = deviceSelect.value || undefined;
+  showThinking();
+  try {
+    const res = await apiPost("/command", { text, device_id: deviceId }, true);
+    hideThinking();
+    await handleResponse(res);
+  } catch (e) {
+    hideThinking();
+    addMsg("Error: " + e.message, "zora");
+  }
+}
+
+const QUICK_ACTION_MESSAGES = {
+  flashlight_on: "Linterna encendida.",
+  flashlight_off: "Linterna apagada.",
+  volume_up: "Subiendo el volumen.",
+  volume_down: "Bajando el volumen.",
+  spotify_pause: "Música en pausa.",
+  get_time: () => "Son las " + new Date().toLocaleTimeString(),
+};
+
+async function handleResponse(res) {
+  if (res.type === "cloud_brain") {
+    const t = res.result.response_text;
+    addMsg(t, "zora");
+    speak(t);
+  } else if (res.type === "image_generated") {
+    addImageMsg(res.result.image_url, res.result.prompt);
+  } else if (res.type === "sos_triggered") {
+    const t = res.result.contacts_count > 0
+      ? `🚨 Alerta de emergencia enviada a ${res.result.contacts_count} contacto(s) de confianza.`
+      : "🚨 Alerta registrada. No tienes contactos de confianza guardados — agrégalos en la pestaña Emergencia.";
+    addMsg(t, "zora");
+    speak(t);
+  } else if (res.type === "quick_command") {
+    const action = res.result.action;
+    let t;
+    if (action === "get_activity_stats") {
+      t = res.result.stats ? `Llevas ${res.result.stats.steps} pasos y ${res.result.stats.distance_km} km hoy.`
+                            : (res.result.note || "No hay datos de actividad.");
+    } else if (action === "spotify_play") {
+      t = "Poniendo " + (res.result.param || "música") + ".";
+    } else {
+      const custom = QUICK_ACTION_MESSAGES[action];
+      t = typeof custom === "function" ? custom() : (custom || ("Listo, hecho: " + action.replace(/_/g, " ") + "."));
+    }
+    addMsg(t, "zora");
+    speak(t);
+  } else if (res.type === "queued_for_agent") {
+    const note = res.action === "opencode_run"
+      ? "opencode está trabajando en tu laptop… te traigo el resultado."
+      : "Enviado a tu laptop, esperando que lo ejecute…";
+    addStatusMsg(note);
+    pollCommandStatus(res.command_id, 0, res.action === "opencode_run");
+  } else if (res.type === "shopping") {
+    const t = res.result.message || "Lista actualizada.";
+    addMsg(t, "zora");
+    speak(t);
+  } else if (res.type === "alarm_result") {
+    const t = res.result.message;
+    addMsg(t, "zora");
+    speak(t);
+  } else if (res.type === "instant_calculation") {
+    const t = res.result.text || "";
+    addMsg(t, "zora");
+    speak("Eso da " + String(t).replace(/\.$/, ""));
+  } else if (res.type === "fast_search") {
+    const t = res.result.text || "";
+    addMsg(String(t), "zora", { html: false });
+    speak(String(t).replace(/\*\*/g, "").replace(/\*/g, ""));
+  } else {
+    addMsg(res.error || "No entendí bien qué pasó.", "zora");
+  }
+}
+
+async function pollCommandStatus(commandId, attempts, longTask) {
+  attempts = attempts || 0;
+  const maxAttempts = longTask ? 200 : 20;  // opencode puede tardar minutos
+  if (attempts > maxAttempts) {
+    addStatusMsg(longTask ? "opencode sigue trabajando — revisa tu laptop." : "La laptop no respondió a tiempo.");
+    return;
+  }
+  try {
+    const status = await apiGet("/command/status?command_id=" + commandId, false);
+    if (status.status === "done") {
+      let t;
+      if (longTask && status.result && status.result.output !== undefined) {
+        t = "🧑‍💻 opencode terminó:\n\n" +
+            (status.result.output || "(sin salida)") +
+            (status.result.truncated ? "\n\n(salida recortada — mira la terminal de tu laptop para el resto)" : "");
+      } else {
+        const r = status.result || {};
+        // Mensaje humano del agente si lo trae; el JSON crudo solo como
+        // último recurso (antes siempre volcaba JSON — feo e ilegible).
+        t = "Listo en tu laptop: " + (r.message || JSON.stringify(r));
+      }
+      addMsg(t, "zora");
+      speak(longTask ? "Listo, opencode terminó su tarea." : "Hecho en tu laptop.");
+    } else {
+      const delay = longTask ? 3000 : 1500;
+      setTimeout(() => pollCommandStatus(commandId, attempts + 1, longTask), delay);
+    }
+  } catch (e) {
+    addStatusMsg("Error consultando el estado: " + e.message);
+  }
+}
+
+// ============================================================
+// Voz -> texto (Web Speech API, si el navegador la soporta)
+// ============================================================
+const micBtn = document.getElementById("mic-btn");
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognizer = null;
+
+const MIC_ERROR_MESSAGES = {
+  "not-allowed": "No tengo permiso para usar el micrófono. Revisa el ícono de candado/cámara en la barra de direcciones y permite el micrófono para esta página, luego recarga.",
+  "service-not-allowed": "El navegador bloqueó el acceso al micrófono. Revisa los permisos del sitio.",
+  "no-speech": "No detecté que dijeras nada. Intenta de nuevo, más cerca del micrófono.",
+  "audio-capture": "No encontré ningún micrófono conectado en esta máquina.",
+  "network": "El reconocimiento de voz necesita conexión a internet y no pudo conectarse.",
+};
+
+if (!window.isSecureContext) {
+  micBtn.addEventListener("click", () => {
+    addStatusMsg("El reconocimiento de voz solo funciona en https:// o localhost. Esta página no cumple eso, así que el navegador no deja usar el micrófono aquí.");
+  });
+} else if (SpeechRecognitionCtor) {
+  recognizer = new SpeechRecognitionCtor();
+  recognizer.lang = "es-ES";
+  recognizer.interimResults = false;
+
+  recognizer.addEventListener("result", (event) => {
+    const text = event.results[0][0].transcript;
+    textInput.value = text;
+    hideChips();
+    sendCommand(text);
+  });
+  recognizer.addEventListener("end", () => micBtn.classList.remove("listening"));
+  recognizer.addEventListener("error", (event) => {
+    micBtn.classList.remove("listening");
+    const msg = MIC_ERROR_MESSAGES[event.error] || `No pude usar el micrófono (${event.error}).`;
+    addStatusMsg(msg);
+  });
+
+  micBtn.addEventListener("click", () => {
+    if (micBtn.classList.contains("listening")) {
+      recognizer.stop();
+      return;
+    }
+    micBtn.classList.add("listening");
+    try {
+      recognizer.start();
+    } catch (e) {
+      micBtn.classList.remove("listening");
+      addStatusMsg("No se pudo iniciar el micrófono: " + e.message);
+    }
+  });
+} else {
+  micBtn.addEventListener("click", () => {
+    addStatusMsg("Este navegador no soporta reconocimiento de voz. Prueba con Chrome o Edge, o escribe el comando.");
+  });
+}
+
+// ============================================================
+// Texto -> voz.
+//   1) VOCES PREINSTALADAS DE ZORA (zora:nova...) — se generan en tu
+//      propio backend con Pollinations (gratis) y se cachean; funcionan
+//      igual en cualquier dispositivo sin buscar voces en el sistema.
+//   2) Respaldo: voces del navegador/sistema, prefiriendo una femenina
+//      en español.
+// ============================================================
+const FEMALE_HINTS = ["female", "mujer", "mónica", "monica", "paulina", "helena",
+  "sabina", "elvira", "zira", "samantha", "victoria", "laura"];
+
+const ZORA_VOICES = [
+  { id: "clasica", label: "Zora Clásica (voz preinstalada)" },
+  { id: "despacio", label: "Zora Despacio (para aprender)" },
+  { id: "ingles", label: "Zora in English (listening)" },
+];
+
+const voiceSelect = document.getElementById("voice-select");
+const speakerBtn = document.getElementById("speaker-btn");
+
+// Defensa: si algún rediseño futuro borra el selector del HTML, avisamos y
+// seguimos — NUNCA dejar que un elemento faltante mate todo el script
+// (eso dejó muertas la pestaña de Emergencia y las voces una vez).
+if (!voiceSelect) {
+  console.warn("#voice-select no está en el HTML: sin selector de voces");
+}
+if (!speakerBtn) {
+  console.warn("#speaker-btn no está en el HTML: sin botón de silencio");
+}
+
+let voiceMuted = localStorage.getItem("zora_voice_muted") === "1";
+let chosenVoiceName = localStorage.getItem("zora_voice_name") || "zora:nova";
+
+function updateSpeakerBtn() {
+  if (!speakerBtn) return;
+  speakerBtn.textContent = voiceMuted ? "🔇" : "🔊";
+  speakerBtn.classList.toggle("muted", voiceMuted);
+}
+updateSpeakerBtn();
+
+if (speakerBtn) speakerBtn.addEventListener("click", () => {
+  voiceMuted = !voiceMuted;
+  localStorage.setItem("zora_voice_muted", voiceMuted ? "1" : "0");
+  updateSpeakerBtn();
+  if (voiceMuted) {
+    stopServerAudio();
+    window.speechSynthesis && window.speechSynthesis.cancel();
+  }
+});
+
+function populateVoiceList() {
+  if (!voiceSelect) return;
+  // Grupo 1: las voces preinstaladas de Zora (siempre disponibles)
+  voiceSelect.innerHTML = "";
+  const g1 = document.createElement("optgroup");
+  g1.label = "Voces de Zora";
+  ZORA_VOICES.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = "zora:" + v.id;
+    opt.textContent = v.label;
+    if (("zora:" + v.id) === chosenVoiceName) opt.selected = true;
+    g1.appendChild(opt);
+  });
+  voiceSelect.appendChild(g1);
+
+  if (!("speechSynthesis" in window)) return;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return;
+  const spanish = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith("es"));
+  const others = voices.filter(v => !(v.lang && v.lang.toLowerCase().startsWith("es")));
+  const g2 = document.createElement("optgroup");
+  g2.label = "Voces del sistema";
+  [...spanish, ...others].forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = "sys:" + v.name;
+    opt.textContent = `${v.name} (${v.lang})`;
+    if (("sys:" + v.name) === chosenVoiceName) opt.selected = true;
+    g2.appendChild(opt);
+  });
+  voiceSelect.appendChild(g2);
+}
+
+if (voiceSelect) voiceSelect.addEventListener("change", () => {
+  chosenVoiceName = voiceSelect.value;
+  localStorage.setItem("zora_voice_name", chosenVoiceName);
+  // Deja oír la voz elegida de inmediato, como confirmación.
+  speak("Hola, así sueno ahora.");
+});
+
+function pickFemaleSpanishVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  if (chosenVoiceName.startsWith("sys:")) {
+    const wanted = chosenVoiceName.slice(4);
+    const chosen = voices.find(v => v.name === wanted);
+    if (chosen) return chosen;
+  }
+  const spanish = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith("es"));
+  const pool = spanish.length ? spanish : voices;
+  const female = pool.find(v => FEMALE_HINTS.some(h => v.name.toLowerCase().includes(h)));
+  return female || pool[0] || null;
+}
+
+let currentAudio = null;
+function stopServerAudio() {
+  if (currentAudio) {
+    try { currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); } catch (e) {}
+    currentAudio = null;
+  }
+}
+
+async function speakWithServer(text, voiceId) {
+  try {
+    const res = await fetch(BACKEND_URL + "/tts?voice=" + encodeURIComponent(voiceId) +
+                            "&text=" + encodeURIComponent(text.slice(0, 440)));
+    const ct = (res.headers.get("content-type") || "");
+    if (!res.ok || !ct.startsWith("audio")) return false;
+    const blob = await res.blob();
+    stopServerAudio();
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    currentAudio = new Audio(URL.createObjectURL(blob));
+    await currentAudio.play();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function speak(text) {
+  if (!text || voiceMuted) return;
+  if (chosenVoiceName.startsWith("zora:") && BACKEND_URL) {
+    const ok = await speakWithServer(text, chosenVoiceName.slice(5));
+    if (ok) return;
+    // El servicio no respondió: caemos a la voz del navegador sin avisar.
+  }
+  if (!("speechSynthesis" in window)) return;
+  const utter = new SpeechSynthesisUtterance(text);
+  const voice = pickFemaleSpanishVoice();
+  if (voice) utter.voice = voice;
+  utter.lang = (voice && voice.lang) || "es-ES";
+  utter.pitch = 1.05;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+// Algunos navegadores (Chrome) cargan la lista de voces de forma
+// asíncrona — hay que esperar ese evento para poder listarlas bien.
+if ("speechSynthesis" in window) {
+  populateVoiceList();
+  window.speechSynthesis.onvoiceschanged = populateVoiceList;
+} else {
+  populateVoiceList();
+}
+
+// ============================================================
+// Pestañas: Chat <-> Emergencia
+// ============================================================
+const chatComposerWrap = document.getElementById("composer-wrap");
+const panicScreen = document.getElementById("panic-screen");
+const messagesWrap = document.getElementById("messages");
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const tab = btn.dataset.tab;
+    if (tab === "chat") {
+      messagesWrap.style.display = "flex";
+      chipsRow.style.display = "";
+      chatComposerWrap.style.display = "";
+      panicScreen.style.display = "none";
+    } else {
+      messagesWrap.style.display = "none";
+      chipsRow.style.display = "none";
+      chatComposerWrap.style.display = "none";
+      panicScreen.style.display = "flex";
+      refreshPanicScreen();
+    }
+  });
+});
+
+// ============================================================
+// Geolocalización del navegador (para SOS, geocercas y reporte de ubicación)
+// ============================================================
+let lastKnownCoords = null; // {lat, lon}
+
+function getBrowserLocation() {
+  return new Promise((resolve) => {
+    if (!("geolocation" in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        lastKnownCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        resolve(lastKnownCoords);
+      },
+      () => resolve(null),
+      { timeout: 8000 }
+    );
+  });
+}
+
+// Reporta la ubicación del dispositivo elegido cada 30s (si hay uno elegido
+// y el navegador nos deja) — así las geocercas se pueden revisar de verdad.
+setInterval(async () => {
+  if (!USER_TOKEN || !deviceSelect.value) return;
+  const coords = await getBrowserLocation();
+  if (!coords) return;
+  try {
+    const res = await apiPost("/location", { device_id: deviceSelect.value, ...coords }, true);
+    (res.new_alerts || []).forEach(a => addStatusMsg("📍 " + a.message));
+  } catch (e) { /* silencioso: no todos los dispositivos aceptan reporte de ubicación así */ }
+}, 30000);
+
+// ============================================================
+// Notificaciones de alarmas/timers (el backend las guarda hasta
+// entregarlas UNA sola vez a este usuario; aquí se muestran y
+// Zora las lee en voz alta)
+// ============================================================
+async function pollNotifications() {
+  if (!USER_TOKEN) return;
+  try {
+    const data = await apiGet("/notifications", true);
+    (data.notifications || []).forEach(n => {
+      addMsg("⏰ " + n.message, "zora");
+      speak(n.message.replace(/[⏰🚨]/g, ""));
+    });
+  } catch (e) { /* silencioso: reintenta en el próximo ciclo */ }
+}
+setInterval(pollNotifications, 8000);
+
+// ============================================================
+// SOS
+// ============================================================
+document.getElementById("sos-btn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("sos-status");
+  statusEl.textContent = "Obteniendo ubicación y enviando alerta…";
+  const coords = await getBrowserLocation();
+  try {
+    const body = { device_id: deviceSelect.value || undefined, message: "SOS enviado desde la app" };
+    if (coords) { body.lat = coords.lat; body.lon = coords.lon; }
+    const res = await apiPost("/sos", body, true);
+    statusEl.textContent = res.contacts_count > 0
+      ? `Alerta enviada a ${res.contacts_count} contacto(s) de confianza.`
+      : "Alerta registrada. No tienes contactos de confianza guardados todavía — agrega uno abajo.";
+  } catch (e) {
+    statusEl.textContent = "Error enviando la alerta: " + e.message;
+  }
+});
+
+// ============================================================
+// Contactos de confianza
+// ============================================================
+async function loadContacts() {
+  const list = document.getElementById("contacts-list");
+  list.innerHTML = "";
+  try {
+    const data = await apiGet("/contacts", true);
+    if (!data.contacts.length) { list.innerHTML = '<div class="sub">Sin contactos todavía.</div>'; return; }
+    data.contacts.forEach(c => {
+      const div = document.createElement("div");
+      div.className = "card row";
+      div.innerHTML = `<div><div class="title">${c.name}</div>
+        <div class="sub">${c.email || ""} ${c.phone || ""}</div></div>`;
+      const btn = document.createElement("button");
+      btn.className = "mini-btn"; btn.textContent = "Eliminar";
+      btn.addEventListener("click", async () => {
+        await apiDelete("/contacts?id=" + c.id, true);
+        loadContacts();
+      });
+      div.appendChild(btn);
+      list.appendChild(div);
+    });
+  } catch (e) { list.innerHTML = '<div class="sub">' + e.message + '</div>'; }
+}
+
+document.getElementById("contact-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("contact-name").value.trim();
+  const email = document.getElementById("contact-email").value.trim();
+  const phone = document.getElementById("contact-phone").value.trim();
+  if (!name) return;
+  await apiPost("/contacts", { name, email, phone }, true);
+  e.target.reset();
+  loadContacts();
+});
+
+// ============================================================
+// Geocercas
+// ============================================================
+let pendingFenceCoords = null;
+
+document.getElementById("fence-use-location").addEventListener("click", async () => {
+  const coords = await getBrowserLocation();
+  if (!coords) { alert("No se pudo obtener tu ubicación."); return; }
+  pendingFenceCoords = coords;
+  document.getElementById("fence-use-location").textContent = "📍 Ubicación capturada ✓";
+});
+
+async function loadFences() {
+  const list = document.getElementById("fences-list");
+  list.innerHTML = "";
+  try {
+    const data = await apiGet("/geofences", true);
+    if (!data.geofences.length) { list.innerHTML = '<div class="sub">Sin geocercas todavía.</div>'; return; }
+    data.geofences.forEach(f => {
+      const div = document.createElement("div");
+      div.className = "card row";
+      div.innerHTML = `<div><div class="title">${f.name}</div>
+        <div class="sub">Radio ${f.radius_m} m</div></div>`;
+      const btn = document.createElement("button");
+      btn.className = "mini-btn"; btn.textContent = "Eliminar";
+      btn.addEventListener("click", async () => {
+        await apiDelete("/geofences?id=" + f.id, true);
+        loadFences();
+      });
+      div.appendChild(btn);
+      list.appendChild(div);
+    });
+  } catch (e) { list.innerHTML = '<div class="sub">' + e.message + '</div>'; }
+}
+
+document.getElementById("fence-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("fence-name").value.trim();
+  const radius_m = parseFloat(document.getElementById("fence-radius").value);
+  if (!name || !radius_m) return;
+  if (!pendingFenceCoords) { alert("Primero presiona \"Usar mi ubicación actual\"."); return; }
+  await apiPost("/geofences", { name, radius_m, lat: pendingFenceCoords.lat, lon: pendingFenceCoords.lon }, true);
+  e.target.reset();
+  pendingFenceCoords = null;
+  document.getElementById("fence-use-location").textContent = "📍 Usar mi ubicación actual";
+  loadFences();
+});
+
+// ============================================================
+// Actividad y alertas
+// ============================================================
+async function loadActivity() {
+  if (!deviceSelect.value) {
+    document.getElementById("activity-summary").innerHTML = '<span style="font-size:12px;">Elige un dispositivo en el chat para ver sus pasos</span>';
+    return;
+  }
+  try {
+    const data = await apiGet("/activity/today?device_id=" + deviceSelect.value, true);
+    document.getElementById("activity-summary").innerHTML = (data.steps || 0) + " <span>pasos</span>";
+    document.getElementById("activity-distance").textContent = (data.distance_km || 0) + " km recorridos";
+  } catch (e) { /* silencioso */ }
+}
+
+async function loadAlerts() {
+  const list = document.getElementById("alerts-list");
+  try {
+    const data = await apiGet("/alerts", true);
+    if (!data.alerts.length) { list.innerHTML = '<div class="sub">Sin alertas todavía.</div>'; return; }
+    list.innerHTML = "";
+    data.alerts.slice(0, 10).forEach(a => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `<div class="title">${a.message}</div>
+        <div class="sub">${new Date(a.ts * 1000).toLocaleString()}</div>`;
+      list.appendChild(div);
+    });
+  } catch (e) { list.innerHTML = '<div class="sub">' + e.message + '</div>'; }
+}
+
+function refreshPanicScreen() {
+  loadContacts();
+  loadFences();
+  loadActivity();
+  loadAlerts();
+}
+
+// ============================================================
+// Personalización de la interfaz (tema, color y forma)
+// ============================================================
+const THEME_ACCENTS = {
+  violeta: { g: "linear-gradient(135deg,#4e8cff 0%,#9b6bff 55%,#ff7eb6 100%)",
+             t: "linear-gradient(90deg,#7fb2ff 0%,#b58cff 50%,#ff9ec2 100%)" },
+  azul:    { g: "linear-gradient(135deg,#38bdf8 0%,#3b82f6 55%,#6366f1 100%)",
+             t: "linear-gradient(90deg,#7dd3fc 0%,#93c5fd 50%,#a5b4fc 100%)" },
+  verde:   { g: "linear-gradient(135deg,#34d399 0%,#14b8a6 55%,#a3e635 100%)",
+             t: "linear-gradient(90deg,#6ee7b7 0%,#5eead4 50%,#bef264 100%)" },
+  rosa:    { g: "linear-gradient(135deg,#f472b6 0%,#ec4899 55%,#fb7185 100%)",
+             t: "linear-gradient(90deg,#f9a8d4 0%,#f0abfc 50%,#fda4af 100%)" },
+  ambar:   { g: "linear-gradient(135deg,#fbbf24 0%,#f97316 55%,#ef4444 100%)",
+             t: "linear-gradient(90deg,#fcd34d 0%,#fdba74 50%,#fca5a5 100%)" },
+};
+let CURRENT_USER = "";
+
+function themeKey() {
+  // Preferencias POR USUARIO: en una PC familiar cada quien ve su tema.
+  return "zora_theme:" + (CURRENT_USER || "default");
+}
+
+function applyTheme(prefs) {
+  prefs = prefs || {};
+  const body = document.body;
+  body.classList.remove("theme-light", "theme-sepia");
+  if (prefs.theme) body.classList.add(prefs.theme);
+  const acc = THEME_ACCENTS[prefs.accent] || THEME_ACCENTS.violeta;
+  document.documentElement.style.setProperty("--grad", acc.g);
+  document.documentElement.style.setProperty("--grad-text", acc.t);
+  document.documentElement.style.setProperty("--radius", prefs.radius || "16px");
+  // reflejar selección en el panel
+  document.querySelectorAll("#theme-choices .opt-chip").forEach(c =>
+    c.classList.toggle("sel", c.dataset.theme === (prefs.theme || "")));
+  document.querySelectorAll("#accent-choices .swatch").forEach(s =>
+    s.classList.toggle("sel", s.dataset.accent === (prefs.accent || "violeta")));
+  document.querySelectorAll("#radius-choices .opt-chip").forEach(c =>
+    c.classList.toggle("sel", c.dataset.radius === (prefs.radius || "16px")));
+}
+
+function loadUserTheme() {
+  try { applyTheme(JSON.parse(localStorage.getItem(themeKey()) || "{}")); }
+  catch (_) { applyTheme({}); }
+}
+
+function saveUserTheme(patch) {
+  let cur = {};
+  try { cur = JSON.parse(localStorage.getItem(themeKey()) || "{}"); } catch (_) {}
+  const next = Object.assign(cur, patch);
+  try { localStorage.setItem(themeKey(), JSON.stringify(next)); } catch (_) {}
+  applyTheme(next);
+}
+
+const themePanel = document.getElementById("theme-panel");
+document.getElementById("theme-btn").addEventListener("click", () => {
+  themePanel.classList.toggle("open");
+});
+document.addEventListener("click", (e) => {
+  if (!themePanel.contains(e.target) && e.target.id !== "theme-btn")
+    themePanel.classList.remove("open");
+});
+document.querySelectorAll("#theme-choices .opt-chip").forEach(chip =>
+  chip.addEventListener("click", () => saveUserTheme({ theme: chip.dataset.theme })));
+document.querySelectorAll("#accent-choices .swatch").forEach(sw =>
+  sw.addEventListener("click", () => saveUserTheme({ accent: sw.dataset.accent })));
+document.querySelectorAll("#radius-choices .opt-chip").forEach(chip =>
+  chip.addEventListener("click", () => saveUserTheme({ radius: chip.dataset.radius })));
+
+// ============================================================
+// Auto-login: si hay una sesión guardada (de un login anterior), entrar
+// directo al chat sin volver a pedir usuario y contraseña. Va AL FINAL
+// del script a propósito: así todas las variables y manejadores ya están
+// inicializados cuando enterChat() toca la interfaz (moverlo antes causó
+// errores de "variable usada antes de declararse").
+// ============================================================
+try {
+  const saved = JSON.parse(localStorage.getItem("zora_session") || "null");
+  if (saved && saved.token) {
+    if (saved.url) BACKEND_URL = String(saved.url).replace(/\/$/, "");
+    USER_TOKEN = saved.token;
+    CURRENT_USER = saved.username || "";
+    loadUserTheme();
+    const urlInput = document.getElementById("backend-url");
+    if (urlInput && !urlInput.value && BACKEND_URL) urlInput.value = BACKEND_URL;
+    enterChat();
+  }
+} catch (_) { /* sesión corrupta: se ignora y se muestra el login normal */ }
+
+// ============================================================
+// Registro del service worker — requisito para que Chrome/Edge en el
+// CELULAR ofrezcan "Instalar app" (Zora queda como app nativa en la
+// pantalla de inicio, a pantalla completa y con su propio icono).
+// ============================================================
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => {
+      /* sin SW la web funciona igual; solo no se ofrece instalar */
+    });
+  });
+}
+</script>
+</body>
+</html>
